@@ -10,7 +10,9 @@ if [[ -z $N ]]; then
 fi
 
 files=$(find $X -type f -name "*.fa" -or -name "*.fasta")
-echo "Fasta file count: $(ls $files | wc -l)"  
+echo "Fasta file count: $(ls $files | wc -l)" 
+echo "Unique fasta IDs: $(awk -F" " '/>/{print $1}' $files | sort | uniq -c | wc -l)"
+# echo "All fasta IDs: $(awk -F" " '/>/{print $1}' $files | wc -l)" TODO - Used for testing
 
 for file in $files; do
   seq_count=$(grep ">" $file | wc -l) # Count how many titles we have
@@ -22,14 +24,11 @@ for file in $files; do
     sequences=$(awk '!/>/{gsub("-", "",$0); gsub(" ", "", $0); gsub("\n", "", $0); print $0}' $file) 
     echo "Total length of sequences: $(echo $sequences | wc -c)" # We print the length of characters of all sequences in our file
     for sequence in $sequences; do # Looping through each individual sequence in the file
-      is_nuc=true # Boolean to check if the sequence is a nucleotide or amino acid
-      for char in $(echo $sequence | grep -o .); do # Looping through each character
-        if [[ $char != [ATGC] ]]; then # If the character isn't part of this array (for nucleotides), we set the boolean to false 
-          is_nuc=false # Setting the boolean to false
-          break # Breaking of the for loop, as we won't need to check all the other characters
-        fi
-      done
-      echo "Is this sequence a nucelotide?: $is_nuc" # We print if the sequence is a nucleotide or not
+      # TODO - There are files that have small letters, aka atgc || TODO -i to ignore case
+      is_nuc=$(echo "$sequence" | grep -qvi '[^ATGCU]' && echo true || echo false) # TODO - Adding U for RNA sequences
+      is_aa=$(echo "$sequence" | grep -qvi '[^ARNDCQEGHILKMFPSTWYV]' && echo true || echo false)
+      $is_nuc && echo "This sequence is a nucelotide" # We print if the sequence is a nucleotide
+      $is_nuc || ($is_aa && echo "This sequence is a aminoacid") # We print if the sequence is a aminoacid
       break # TODO - Remove this as we are only doing the first sequence of each file for testing reason
     done
     line_count=$(wc -l < $file) # Here we check if the file is empty or not to print out the N number of lines to print
@@ -44,3 +43,11 @@ for file in $files; do
     fi
   fi
 done
+
+#is_nuc=true # Boolean to check if the sequence is a nucleotide or amino acid
+#      for char in $(echo $sequence | grep -o .); do # Looping through each character
+#        if [[ $char != [ATGCU] ]]; then # If the character isn't part of this array (for nucleotides), we set the boolean to false TODO - Adding U for RNA
+#          is_nuc=false # Setting the boolean to false
+#          break # Breaking of the for loop, as we won't need to check all the other characters
+#        fi
+#      done
