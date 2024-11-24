@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Arguments of the script
 
 # X is the directory of where we are searching the fasta files in
@@ -22,9 +24,10 @@ fi
 if [[ -z $N ]]; then
   N=0
 else 
-  # TODO - Comment
+  # Make it necessary to input a non-negative integer
   if [[ $N -lt 0 ]]; then
     echo "ERROR: N must be a non-negative integer"
+    exit 1
   fi
 fi
 
@@ -41,10 +44,8 @@ echo "@ Fasta file count: $(ls $files | wc -l)"
 # Using the space seperator on the header of the files
 echo "@ Unique fasta IDs: $(awk -F" " '/>/{print $1}' $files | sort | uniq -c | wc -l)"
 
-# Newline 
+# Newline for clarity
 echo ''
-
-# echo "All fasta IDs: $(awk -F" " '/>/{print $1}' $files | wc -l)" TODO - Used for testing
 
 # Looping through the files found to get some report information of each.
 for file in $files; do
@@ -59,7 +60,7 @@ for file in $files; do
       continue
     fi
     
-    # Header with the file name, maybe just use $file if we use find TODO
+    # Header for our file
     echo === $file === 
     
     # Check if the file is a symbolic link
@@ -84,7 +85,7 @@ for file in $files; do
     # Looping through each individual sequence in the file
     # TODO - No for loop if we are only checking the first sequence
     for sequence in $sequences; do 
-      # There are files that have non capital letters, aka atgc || TODO -i to ignore case
+      # There are files that have non capital letters, aka atgc
       # Adding U for RNA sequences. Adding N for unknown letters
       is_nucleotide=$(echo $sequence | grep -qvi '[^ATGCNU]' && echo true || echo false)
       is_amino_acid=$(echo $sequence | grep -qvi '[^ARNDCQEGHILKMFPSTWYV]' && echo true || echo false)
