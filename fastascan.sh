@@ -12,7 +12,7 @@ if [[ -z $X ]]; then
 else 
   # If the argument is non-null, we want to check if the directory exists, if not, we exit the script and error out
   if [[ ! -d $X ]]; then
-    echo "This directory does not exist!"
+    echo "ERROR: This directory does not exist!"
     exit 1
   fi 
 fi
@@ -24,19 +24,25 @@ if [[ -z $N ]]; then
 else 
   # TODO - Comment
   if [[ $N -lt 0 ]]; then
-    # TODO
+    echo "ERROR: N must be a non-negative integer"
   fi
 fi
 
 # Using find, we check the directory and it's subfolders of all the fasta/fa files.
 files=$(find $X -type f -name "*.fa" -or -name "*.fasta")
 
+# 
+echo === "Report information:" ===
+
 # We want to count how many such files are there
-echo "Fasta file count: $(ls $files | wc -l)"
+echo "@ Fasta file count: $(ls $files | wc -l)"
 
 # We want to check how many unique fasta IDs are contained in the files in total
 # Using the space seperator on the header of the files
-echo "Unique fasta IDs: $(awk -F" " '/>/{print $1}' $files | sort | uniq -c | wc -l)"
+echo "@ Unique fasta IDs: $(awk -F" " '/>/{print $1}' $files | sort | uniq -c | wc -l)"
+
+# Newline 
+echo ''
 
 # echo "All fasta IDs: $(awk -F" " '/>/{print $1}' $files | wc -l)" TODO - Used for testing
 
@@ -49,47 +55,67 @@ for file in $files; do
   if [[ $seq_count -gt 0 ]]; then  
     # Check if the file exists
     if [[ ! -e $file ]]; then
-      echo "This file does not exist!"
+      echo "ERROR: This $file does not exist!"
       continue
     fi
     
     # Header with the file name, maybe just use $file if we use find TODO
-    echo === $(basename $file) === 
+    echo === $file === 
     
     # Check if the file is a symbolic link
     if [[ -h $file ]]; then
-      echo "This file is a symbolic link"
+      if [[ ! -e $file ]]; then
+        echo "ERROR: This is a broken symbol link. Skipping..."
+        continue
+      fi
+      echo "- File type: Symbolic link"
     fi
     
     # Check how many sequences we have counted inside the file
-    echo "Sequence count: $seq_count" 
+    echo "- Sequence count: $seq_count" 
     
     # We are getting all the sequences of the file without the titles, removing the gaps, spaces and newlines(?)
     # I don't think we need the \n, as awk already deals with it
-    sequences=$(awk '!/>/{gsub("-", "",$0); gsub(" ", "", $0); gsub("\n", "", $0); print $0}' $file) 
+    sequences=$(awk '!/^>/{gsub("-", "",$0); gsub(" ", "", $0); gsub("\n", "", $0); print $0}' $file) 
     
     # We print the length of characters of all sequences in our file
-    echo "Total length of sequences: $(echo $sequences | wc -c)" 
+    echo "- Total length of sequence(s): $(echo $sequences | wc -c)" 
     
     # Looping through each individual sequence in the file
+    # TODO - No for loop if we are only checking the first sequence
     for sequence in $sequences; do 
-      # TODO - There are files that have non capital letters, aka atgc || TODO -i to ignore case
-      is_nuc=$(echo "$sequence" | grep -qvi '[^ATGCU]' && echo true || echo false) # TODO - Adding U for RNA sequences
-      is_aa=$(echo "$sequence" | grep -qvi '[^ARNDCQEGHILKMFPSTWYV]' && echo true || echo false)
-      
-      $is_nuc && echo "This sequence is a nucelotide" # We print if the sequence is a nucleotide
-      $is_nuc || ($is_aa && echo "This sequence is a aminoacid") # We print if the sequence is a aminoacid
-      break # TODO - Remove this as we are only doing the first sequence of each file for testing reason
+      # There are files that have non capital letters, aka atgc || TODO -i to ignore case
+      # Adding U for RNA sequences. Adding N for unknown letters
+      is_nucleotide=$(echo $sequence | grep -qvi '[^ATGCNU]' && echo true || echo false)
+      is_amino_acid=$(echo $sequence | grep -qvi '[^ARNDCQEGHILKMFPSTWYV]' && echo true || echo false)
+
+      if [[ $is_nucleotide == true ]]; then
+        echo "- Sequence type: Nucleotide"
+        break
+      elif [[ $is_amino_acid == true ]]; then
+        echo "- Sequence type: Aminoacid"
+      else
+        echo "- Sequence type: Invalid"
+      fi
+      break
     done
-    line_count=$(wc -l < $file) # Here we check if the file is empty or not to print out the N number of lines to print
-    if [[ -z $line_count ]]; then # TODO - I don't think we need this because of our file not having titles being skipped
-      echo "File is empty"
-    elif [[ $line_count -le 2*$N ]]; then # If the file is less than 2*N, we just print all the file
-      cat $file
-    else # Print the file using N in head and tail with ... in between
-      head -n $N $file
-      echo "..."
-      tail -n $N $file
+    
+    # Here we check if the file is empty or not to print out the N number of lines to print
+    line_count=$(wc -l $file | awk '{print $1}')
+    
+    if [[ $N -ne 0 ]]; then
+      if [[ -z $line_count ]]; then
+        echo "File is empty"
+      elif [[ $line_count -le 2*$N ]]; then # If the file is less than 2*N, we just print all the file
+        echo "- Displaying full content:"
+        cat $file
+      else # Print the file using N in head and tail with ... in between
+        echo "- Displaying First/Last $N lines:"
+        head -n $N $file
+        echo "..."
+        tail -n $N $file
+      fi
     fi
+    
   fi
 done
