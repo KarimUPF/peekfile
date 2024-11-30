@@ -34,21 +34,24 @@ fi
 # Using find, we check the directory and it's subfolders of all the fasta/fa files.
 files=$(find $X -type f -name "*.fa" -or -name "*.fasta")
 
-# 
+# Report information header
 echo === "Report information:" ===
 
 # We want to count how many such files are there
-count=0 
 if [[ -n $files ]]; then
   count=$(echo $files | wc -w)
+  echo "@ Fasta file count: $count"
+else
+  echo "ERROR: There are no fa/fasta files in this directory!"
+  exit 1
 fi
-echo "@ Fasta file count: $count"
+
 # We want to check how many unique fasta IDs are contained in the files in total
 # Using the space seperator on the header of the files
 echo "@ Unique fasta IDs: $(awk -F" " '/>/{print $1}' $files | sort | uniq -c | wc -l)"
 
 # Newline for clarity
-echo ''
+echo '@ Files:'
 
 # Looping through the files found to get some report information of each.
 for file in $files; do
@@ -88,9 +91,10 @@ for file in $files; do
     # Checking the first sequence to check if it's a nucleotide or amino acid, making us know what the file is.
     sequence=$(echo "$sequences" | awk 'NR==1{print $0}')
     # There are files that have non capital letters, aka atgc. We use -i in grep for those
+    # Unknown letters source: https://www.biostars.org/p/9465475/
     # Adding U for RNA sequences. Adding N for unknown letters
     is_nucleotide=$(echo $sequence | grep -qvi '[^ATGCNU]' && echo true || echo false)
-    # Adding X for unknown letters - https://www.biostars.org/p/9465475/
+    # Adding X for unknown letters
     is_amino_acid=$(echo $sequence | grep -qvi '[^ARNDCQEGHILKMFPSTWYVX]' && echo true || echo false)
 
     if [[ $is_nucleotide == true ]]; then
