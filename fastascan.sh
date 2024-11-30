@@ -38,8 +38,11 @@ files=$(find $X -type f -name "*.fa" -or -name "*.fasta")
 echo === "Report information:" ===
 
 # We want to count how many such files are there
-echo "@ Fasta file count: $(ls $files | wc -l)"
-
+count=0 
+if [[ -n $files ]]; then
+  count=$(echo $files | wc -w)
+fi
+echo "@ Fasta file count: $count"
 # We want to check how many unique fasta IDs are contained in the files in total
 # Using the space seperator on the header of the files
 echo "@ Unique fasta IDs: $(awk -F" " '/>/{print $1}' $files | sort | uniq -c | wc -l)"
@@ -75,31 +78,28 @@ for file in $files; do
     # Check how many sequences we have counted inside the file
     echo "- Sequence count: $seq_count" 
     
-    # We are getting all the sequences of the file without the titles, removing the gaps, spaces and newlines(?)
-    # I don't think we need the \n, as awk already deals with it
-    sequences=$(awk '!/^>/{gsub("-", "",$0); gsub(" ", "", $0); gsub("\n", "", $0); print $0}' $file) 
+    # We are getting all the sequences of the file without the titles, removing the gaps, spaces and newlines*
+    	# *awk processes input line by line by default. Each line is automatically stripped of its newline character before being processed.
+    sequences=$(awk '!/^>/{gsub("-", "",$0); gsub(" ", "", $0); print $0}' $file)
     
     # We print the length of characters of all sequences in our file
     echo "- Total length of sequence(s): $(echo $sequences | wc -c)" 
     
-    # Looping through each individual sequence in the file
-    # TODO - No for loop if we are only checking the first sequence
-    for sequence in $sequences; do 
-      # There are files that have non capital letters, aka atgc
-      # Adding U for RNA sequences. Adding N for unknown letters
-      is_nucleotide=$(echo $sequence | grep -qvi '[^ATGCNU]' && echo true || echo false)
-      is_amino_acid=$(echo $sequence | grep -qvi '[^ARNDCQEGHILKMFPSTWYV]' && echo true || echo false)
+    # Checking the first sequence to check if it's a nucleotide or amino acid, making us know what the file is.
+    sequence=$(echo "$sequences" | awk 'NR==1{print $0}')
+    # There are files that have non capital letters, aka atgc. We use -i in grep for those
+    # Adding U for RNA sequences. Adding N for unknown letters
+    is_nucleotide=$(echo $sequence | grep -qvi '[^ATGCNU]' && echo true || echo false)
+    # Adding X for unknown letters - https://www.biostars.org/p/9465475/
+    is_amino_acid=$(echo $sequence | grep -qvi '[^ARNDCQEGHILKMFPSTWYVX]' && echo true || echo false)
 
-      if [[ $is_nucleotide == true ]]; then
-        echo "- Sequence type: Nucleotide"
-        break
-      elif [[ $is_amino_acid == true ]]; then
-        echo "- Sequence type: Aminoacid"
-      else
-        echo "- Sequence type: Invalid"
-      fi
-      break
-    done
+    if [[ $is_nucleotide == true ]]; then
+      echo "- Sequence type(s): Nucleotide"
+    elif [[ $is_amino_acid == true ]]; then
+      echo "- Sequence type(s): Aminoacid"
+    else
+      echo "- Sequence type(s): Invalid"
+    fi
     
     # Here we check if the file is empty or not to print out the N number of lines to print
     line_count=$(wc -l $file | awk '{print $1}')
